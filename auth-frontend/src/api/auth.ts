@@ -1,27 +1,44 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-  rememberMe: boolean;
-}
-
-export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
-}
+const API_BASE = '/auth';
 
 export interface RegisterRequest {
   fullName: string;
   email: string;
   password: string;
   confirmPassword: string;
-  acceptTerms: boolean;
 }
 
 export interface RegisterResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+export interface LoginResponse {
   accessToken: string;
   tokenType: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    isActive: boolean;
+    createdAt: string;
+  };
+}
+
+export interface MeResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -42,138 +59,104 @@ export interface ResetPasswordResponse {
   message: string;
 }
 
-export interface MeResponse {
-  id: string;
-  fullName: string;
-  email: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+export interface RefreshResponse {
+  accessToken: string;
+  tokenType: string;
 }
 
 export interface LogoutResponse {
   message: string;
 }
 
-export interface RefreshResponse {
-  accessToken: string;
-  tokenType: string;
-}
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers ?? {}),
+    },
+    ...options,
+  });
 
-interface ApiErrorPayload {
-  error?: {
-    code?: string;
-    message?: string;
-    details?: unknown;
-  };
-  detail?: string;
-}
-
-async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let message = 'An unexpected error occurred.';
+    let message = `Request failed with status ${response.status}`;
     try {
-      const body: ApiErrorPayload = await response.json();
+      const body = await response.json();
       if (body?.error?.message) {
         message = body.error.message;
-      } else if (typeof body?.detail === 'string') {
-        message = body.detail;
+      } else if (body?.detail) {
+        message = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
       }
     } catch {
       // ignore JSON parse errors
     }
     throw new Error(message);
   }
-  return response.json() as Promise<T>;
-}
 
-export async function login(payload: LoginRequest): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({
-      email: payload.email,
-      password: payload.password,
-      remember_me: payload.rememberMe,
-    }),
-  });
-  return handleResponse<LoginResponse>(response);
+  const text = await response.text();
+  if (!text) {
+    return undefined as unknown as T;
+  }
+  return JSON.parse(text) as T;
 }
 
 export async function register(payload: RegisterRequest): Promise<RegisterResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/register`, {
+  return request<RegisterResponse>('/register', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify({
       full_name: payload.fullName,
       email: payload.email,
       password: payload.password,
       confirm_password: payload.confirmPassword,
-      accept_terms: payload.acceptTerms,
     }),
   });
-  return handleResponse<RegisterResponse>(response);
 }
 
-export async function forgotPassword(
-  payload: ForgotPasswordRequest,
-): Promise<ForgotPasswordResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+export async function login(payload: LoginRequest): Promise<LoginResponse> {
+  return request<LoginResponse>('/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ email: payload.email }),
+    body: JSON.stringify({
+      email: payload.email,
+      password: payload.password,
+      remember_me: payload.rememberMe ?? false,
+    }),
   });
-  return handleResponse<ForgotPasswordResponse>(response);
 }
 
-export async function resetPassword(
-  payload: ResetPasswordRequest,
-): Promise<ResetPasswordResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+export async function me(): Promise<MeResponse> {
+  return request<MeResponse>('/me', {
+    method: 'GET',
+  });
+}
+
+export async function forgotPassword(payload: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+  return request<ForgotPasswordResponse>('/forgot-password', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+    body: JSON.stringify({
+      email: payload.email,
+    }),
+  });
+}
+
+export async function resetPassword(payload: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+  return request<ResetPasswordResponse>('/reset-password', {
+    method: 'POST',
     body: JSON.stringify({
       token: payload.token,
       password: payload.password,
       confirm_password: payload.confirmPassword,
     }),
   });
-  return handleResponse<ResetPasswordResponse>(response);
-}
-
-export async function me(accessToken: string): Promise<MeResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    credentials: 'include',
-  });
-  return handleResponse<MeResponse>(response);
-}
-
-export async function logout(accessToken: string): Promise<LogoutResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    credentials: 'include',
-  });
-  return handleResponse<LogoutResponse>(response);
 }
 
 export async function refresh(): Promise<RefreshResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+  return request<RefreshResponse>('/refresh', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
   });
-  return handleResponse<RefreshResponse>(response);
+}
+
+export async function logout(): Promise<LogoutResponse> {
+  return request<LogoutResponse>('/logout', {
+    method: 'POST',
+  });
 }
