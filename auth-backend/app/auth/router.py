@@ -1,27 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import (
-    RegisterRequest,
-    RegisterResponse,
-    LoginRequest,
-    LoginResponse,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
-    ResetPasswordRequest,
-    ResetPasswordResponse,
-    MeResponse,
+    LoginRequest,
+    LoginResponse,
     LogoutRequest,
-    LogoutResponse,
+    MeResponse,
     RefreshRequest,
     RefreshResponse,
+    RegisterRequest,
+    RegisterResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
 )
 from app.auth.service import AuthService
+from app.database import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def get_auth_service() -> AuthService:
-    return AuthService()
+def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
+    return AuthService(db)
 
 
 @router.post(
@@ -90,15 +91,16 @@ async def me(
 
 @router.post(
     "/logout",
-    response_model=LogoutResponse,
-    status_code=status.HTTP_200_OK,
+    response_model=None,
+    status_code=status.HTTP_204_NO_CONTENT,
     operation_id="logout",
 )
 async def logout(
     payload: LogoutRequest,
     service: AuthService = Depends(get_auth_service),
-) -> LogoutResponse:
-    return await service.logout(payload)
+) -> Response:
+    await service.logout(payload)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
