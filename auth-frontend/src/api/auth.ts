@@ -1,29 +1,39 @@
 const API_BASE = '/api';
 
+export interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
-  rememberMe?: boolean;
+  remember_me?: boolean;
 }
 
 export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
-  user: UserResponse;
+  access_token: string;
+  token_type: string;
 }
 
 export interface RegisterRequest {
-  fullName: string;
+  full_name: string;
   email: string;
   password: string;
-  confirmPassword: string;
-  acceptTerms: boolean;
+  confirm_password: string;
 }
 
 export interface RegisterResponse {
-  accessToken: string;
-  tokenType: string;
-  user: UserResponse;
+  id: string;
+  full_name: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -37,132 +47,90 @@ export interface ForgotPasswordResponse {
 export interface ResetPasswordRequest {
   token: string;
   password: string;
-  confirmPassword: string;
+  confirm_password: string;
 }
 
 export interface ResetPasswordResponse {
   message: string;
 }
 
-export interface UserResponse {
-  id: string;
-  fullName: string;
-  email: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface MeResponse {
-  id: string;
-  fullName: string;
-  email: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface LogoutResponse {
-  message: string;
-}
-
 export interface RefreshResponse {
-  accessToken: string;
-  tokenType: string;
+  access_token: string;
+  token_type: string;
 }
 
-class ApiError extends Error {
-  public readonly status: number;
-  public readonly code: string;
-
-  constructor(message: string, status: number, code: string) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.code = code;
-  }
+export interface ApiError {
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, string[]>;
+  };
 }
 
-async function request<T>(path: string, options: RequestInit): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
   const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
+    method,
+    headers,
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
-    let message = 'Something went wrong. Please try again.';
-    let code = 'UNKNOWN_ERROR';
+    let errorPayload: ApiError | undefined;
     try {
-      const body = await response.json();
-      if (body?.error?.message) {
-        message = body.error.message;
-      }
-      if (body?.error?.code) {
-        code = body.error.code;
-      }
+      errorPayload = (await response.json()) as ApiError;
     } catch {
       // ignore parse errors
     }
-    throw new ApiError(message, response.status, code);
+    const message =
+      errorPayload?.error?.message ??
+      `Request failed with status ${response.status}`;
+    throw Object.assign(new Error(message), { payload: errorPayload, status: response.status });
+  }
+
+  if (response.status === 204) {
+    return undefined as unknown as T;
   }
 
   return response.json() as Promise<T>;
 }
 
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  return request<LoginResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  return request<LoginResponse>('POST', '/auth/login', data);
 }
 
 export async function register(data: RegisterRequest): Promise<RegisterResponse> {
-  return request<RegisterResponse>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  return request<RegisterResponse>('POST', '/auth/register', data);
 }
 
-export async function forgotPassword(data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
-  return request<ForgotPasswordResponse>('/auth/forgot-password', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+export async function forgotPassword(
+  data: ForgotPasswordRequest,
+): Promise<ForgotPasswordResponse> {
+  return request<ForgotPasswordResponse>('POST', '/auth/forgot-password', data);
 }
 
-export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
-  return request<ResetPasswordResponse>('/auth/reset-password', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+export async function resetPassword(
+  data: ResetPasswordRequest,
+): Promise<ResetPasswordResponse> {
+  return request<ResetPasswordResponse>('POST', '/auth/reset-password', data);
 }
 
-export async function me(accessToken: string): Promise<MeResponse> {
-  return request<MeResponse>('/auth/me', {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+export async function me(): Promise<UserProfile> {
+  return request<UserProfile>('GET', '/auth/me');
 }
 
-export async function logout(accessToken: string): Promise<LogoutResponse> {
-  return request<LogoutResponse>('/auth/logout', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+export async function logout(): Promise<void> {
+  return request<void>('POST', '/auth/logout');
 }
 
 export async function refresh(): Promise<RefreshResponse> {
-  return request<RefreshResponse>('/auth/refresh', {
-    method: 'POST',
-  });
+  return request<RefreshResponse>('POST', '/auth/refresh');
 }
-
-export { ApiError };
