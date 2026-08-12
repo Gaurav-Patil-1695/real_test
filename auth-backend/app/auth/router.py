@@ -2,40 +2,33 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import (
-    ForgotPasswordRequest,
-    ForgotPasswordResponse,
     LoginRequest,
     LoginResponse,
-    LogoutRequest,
-    MeResponse,
-    RefreshRequest,
-    RefreshResponse,
     RegisterRequest,
     RegisterResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
     ResetPasswordRequest,
     ResetPasswordResponse,
+    MeResponse,
+    LogoutRequest,
+    LogoutResponse,
+    RefreshRequest,
+    RefreshResponse,
 )
-from app.auth.service import AuthService
+from app.auth.service import (
+    login,
+    register,
+    forgotPassword,
+    resetPassword,
+    me,
+    logout,
+    refresh,
+)
 from app.database import get_db
+from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
-    return AuthService(db)
-
-
-@router.post(
-    "/register",
-    response_model=RegisterResponse,
-    status_code=status.HTTP_201_CREATED,
-    operation_id="register",
-)
-async def register(
-    payload: RegisterRequest,
-    service: AuthService = Depends(get_auth_service),
-) -> RegisterResponse:
-    return await service.register(payload)
 
 
 @router.post(
@@ -44,11 +37,25 @@ async def register(
     status_code=status.HTTP_200_OK,
     operation_id="login",
 )
-async def login(
-    payload: LoginRequest,
-    service: AuthService = Depends(get_auth_service),
+async def login_endpoint(
+    body: LoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
 ) -> LoginResponse:
-    return await service.login(payload)
+    return await login(body=body, response=response, db=db)
+
+
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="register",
+)
+async def register_endpoint(
+    body: RegisterRequest,
+    db: AsyncSession = Depends(get_db),
+) -> RegisterResponse:
+    return await register(body=body, db=db)
 
 
 @router.post(
@@ -57,11 +64,11 @@ async def login(
     status_code=status.HTTP_202_ACCEPTED,
     operation_id="forgotPassword",
 )
-async def forgotPassword(
-    payload: ForgotPasswordRequest,
-    service: AuthService = Depends(get_auth_service),
+async def forgot_password_endpoint(
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
 ) -> ForgotPasswordResponse:
-    return await service.forgotPassword(payload)
+    return await forgotPassword(body=body, db=db)
 
 
 @router.post(
@@ -70,11 +77,11 @@ async def forgotPassword(
     status_code=status.HTTP_200_OK,
     operation_id="resetPassword",
 )
-async def resetPassword(
-    payload: ResetPasswordRequest,
-    service: AuthService = Depends(get_auth_service),
+async def reset_password_endpoint(
+    body: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
 ) -> ResetPasswordResponse:
-    return await service.resetPassword(payload)
+    return await resetPassword(body=body, db=db)
 
 
 @router.get(
@@ -83,24 +90,26 @@ async def resetPassword(
     status_code=status.HTTP_200_OK,
     operation_id="me",
 )
-async def me(
-    service: AuthService = Depends(get_auth_service),
+async def me_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> MeResponse:
-    return await service.me()
+    return await me(current_user=current_user, db=db)
 
 
 @router.post(
     "/logout",
-    response_model=None,
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=LogoutResponse,
+    status_code=status.HTTP_200_OK,
     operation_id="logout",
 )
-async def logout(
-    payload: LogoutRequest,
-    service: AuthService = Depends(get_auth_service),
-) -> Response:
-    await service.logout(payload)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+async def logout_endpoint(
+    body: LogoutRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> LogoutResponse:
+    return await logout(body=body, response=response, current_user=current_user, db=db)
 
 
 @router.post(
@@ -109,8 +118,9 @@ async def logout(
     status_code=status.HTTP_200_OK,
     operation_id="refresh",
 )
-async def refresh(
-    payload: RefreshRequest,
-    service: AuthService = Depends(get_auth_service),
+async def refresh_endpoint(
+    body: RefreshRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
 ) -> RefreshResponse:
-    return await service.refresh(payload)
+    return await refresh(body=body, response=response, db=db)

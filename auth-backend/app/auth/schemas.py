@@ -1,6 +1,17 @@
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from pydantic import BaseModel, EmailStr
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+    rememberMe: Optional[bool] = False
+
+
+class LoginResponse(BaseModel):
+    accessToken: str
+    tokenType: str
 
 
 class RegisterRequest(BaseModel):
@@ -10,28 +21,10 @@ class RegisterRequest(BaseModel):
     confirmPassword: str
 
 
-class UserInfo(BaseModel):
-    id: int
+class RegisterResponse(BaseModel):
+    id: str
     fullName: str
     email: str
-
-
-class RegisterResponse(BaseModel):
-    accessToken: str
-    refreshToken: str
-    user: UserInfo
-
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-    rememberMe: Optional[bool] = None
-
-
-class LoginResponse(BaseModel):
-    accessToken: str
-    refreshToken: str
-    user: UserInfo
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -53,13 +46,18 @@ class ResetPasswordResponse(BaseModel):
 
 
 class MeResponse(BaseModel):
-    id: int
+    id: str
     fullName: str
     email: str
+    isActive: bool
 
 
 class LogoutRequest(BaseModel):
     refreshToken: Optional[str] = None
+
+
+class LogoutResponse(BaseModel):
+    message: str
 
 
 class RefreshRequest(BaseModel):
@@ -68,13 +66,13 @@ class RefreshRequest(BaseModel):
 
 class RefreshResponse(BaseModel):
     accessToken: str
-    refreshToken: str
+    tokenType: str
 
 
 class ErrorDetail(BaseModel):
     code: str
     message: str
-    details: Dict[str, Any] = {}
+    details: Optional[dict] = None
 
 
 class ErrorResponse(BaseModel):
