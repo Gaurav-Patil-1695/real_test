@@ -1,62 +1,44 @@
-from datetime import datetime
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
 
-# ---------------------------------------------------------------------------
-# Shared error envelope
-# ---------------------------------------------------------------------------
-
-
-class ErrorDetail(BaseModel):
-    code: str
-    message: str
-    details: List[Any] = Field(default_factory=list)
-
-
-class ErrorResponse(BaseModel):
-    error: ErrorDetail
-
-
-# ---------------------------------------------------------------------------
-# Register
-# ---------------------------------------------------------------------------
-
-
 class RegisterRequest(BaseModel):
-    full_name: str
+    full_name: str = Field(..., alias="fullName")
     email: EmailStr
     password: str
-    confirm_password: str
+    confirm_password: str = Field(..., alias="confirmPassword")
+
+    model_config = {"populate_by_name": True}
 
 
 class RegisterResponse(BaseModel):
     id: int
-    full_name: str
-    email: EmailStr
-    created_at: datetime
-
-
-# ---------------------------------------------------------------------------
-# Login
-# ---------------------------------------------------------------------------
+    fullName: str
+    email: str
+    createdAt: str
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    remember_me: Optional[bool] = False
+    remember_me: Optional[bool] = Field(default=None, alias="rememberMe")
+
+    model_config = {"populate_by_name": True}
+
+
+class MeResponse(BaseModel):
+    id: int
+    fullName: str
+    email: str
+    isActive: bool
+    createdAt: str
 
 
 class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-
-
-# ---------------------------------------------------------------------------
-# Forgot password
-# ---------------------------------------------------------------------------
+    accessToken: str
+    tokenType: str
+    user: MeResponse
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -67,48 +49,32 @@ class ForgotPasswordResponse(BaseModel):
     message: str
 
 
-# ---------------------------------------------------------------------------
-# Reset password
-# ---------------------------------------------------------------------------
-
-
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
-    confirm_password: str
+    confirm_password: str = Field(..., alias="confirmPassword")
+
+    model_config = {"populate_by_name": True}
 
 
 class ResetPasswordResponse(BaseModel):
     message: str
 
 
-# ---------------------------------------------------------------------------
-# Me
-# ---------------------------------------------------------------------------
-
-
-class MeResponse(BaseModel):
-    id: int
-    full_name: str
-    email: EmailStr
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-
-# ---------------------------------------------------------------------------
-# Logout
-# ---------------------------------------------------------------------------
-
-
 class LogoutResponse(BaseModel):
     message: str
 
 
-# ---------------------------------------------------------------------------
-# Refresh
-# ---------------------------------------------------------------------------
-
-
 class RefreshResponse(BaseModel):
-    access_token: str
-    token_type: str
+    accessToken: str
+    tokenType: str
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    details: List[str] = Field(default_factory=list)
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
