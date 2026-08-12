@@ -1,7 +1,6 @@
 import hashlib
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import bcrypt
 import jwt
@@ -23,9 +22,13 @@ from app.auth.schemas import (
 
 SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "changeme")
 ALGORITHM: str = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
+    os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "15")
+)
 REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
-REFRESH_TOKEN_REMEMBER_DAYS: int = int(os.environ.get("REFRESH_TOKEN_REMEMBER_DAYS", "30"))
+REFRESH_TOKEN_REMEMBER_DAYS: int = int(
+    os.environ.get("REFRESH_TOKEN_REMEMBER_DAYS", "30")
+)
 BCRYPT_ROUNDS: int = int(os.environ.get("BCRYPT_ROUNDS", "12"))
 
 REFRESH_COOKIE_NAME: str = "refresh_token"
@@ -87,9 +90,13 @@ def _create_refresh_token_value() -> str:
     return os.urandom(32).hex()
 
 
-def _set_refresh_cookie(response: Response, token_value: str, remember_me: bool) -> None:
+def _set_refresh_cookie(
+    response: Response, token_value: str, remember_me: bool
+) -> None:
     max_age = (
-        REFRESH_TOKEN_REMEMBER_DAYS * 86400 if remember_me else REFRESH_TOKEN_EXPIRE_DAYS * 86400
+        REFRESH_TOKEN_REMEMBER_DAYS * 86400
+        if remember_me
+        else REFRESH_TOKEN_EXPIRE_DAYS * 86400
     )
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
@@ -112,18 +119,18 @@ def _clear_refresh_cookie(response: Response) -> None:
     )
 
 
-def _find_user_by_email(email: str) -> Optional[dict]:
+def _find_user_by_email(email: str) -> dict | None:
     for user in _users.values():
         if user["email"] == email:
             return user
     return None
 
 
-def _find_user_by_id(user_id: int) -> Optional[dict]:
+def _find_user_by_id(user_id: int) -> dict | None:
     return _users.get(user_id)
 
 
-def _find_refresh_token_by_hash(token_hash: str) -> Optional[dict]:
+def _find_refresh_token_by_hash(token_hash: str) -> dict | None:
     for rt in _refresh_tokens.values():
         if rt["token_hash"] == token_hash:
             return rt
@@ -157,7 +164,7 @@ def _decode_access_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -167,8 +174,8 @@ def _decode_access_token(token: str) -> dict:
                     "details": [],
                 }
             },
-        )
-    except jwt.InvalidTokenError:
+        ) from exc
+    except jwt.InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
@@ -178,14 +185,23 @@ def _decode_access_token(token: str) -> dict:
                     "details": [],
                 }
             },
-        )
+        ) from exc
 
 
-def _extract_bearer_token(request: Request) -> Optional[str]:
+def _extract_bearer_token(request: Request) -> str | None:
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         return auth_header[len("Bearer "):]
     return None
+
+
+_INVALID_OR_EXPIRED_TOKEN_DETAIL = {
+    "error": {
+        "code": "INVALID_OR_EXPIRED_TOKEN",
+        "message": "This reset link is invalid or has expired.",
+        "details": [],
+    }
+}
 
 
 class AuthService:
@@ -265,7 +281,9 @@ class AuthService:
         access_token = _create_access_token(user["id"], user["email"])
         refresh_token_value = _create_refresh_token_value()
         remember_me: bool = body.remember_me if body.remember_me is not None else False
-        expire_days = REFRESH_TOKEN_REMEMBER_DAYS if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
+        expire_days = (
+            REFRESH_TOKEN_REMEMBER_DAYS if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
+        )
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(days=expire_days)
 
@@ -294,7 +312,9 @@ class AuthService:
             ),
         )
 
-    async def forgotPassword(self, body: ForgotPasswordRequest) -> ForgotPasswordResponse:
+    async def forgotPassword(
+        self, body: ForgotPasswordRequest
+    ) -> ForgotPasswordResponse:
         user = _find_user_by_email(body.email)
         if user:
             raw_token = os.urandom(32).hex()
@@ -313,7 +333,10 @@ class AuthService:
             # In production: send email with raw_token
 
         return ForgotPasswordResponse(
-            message="If that email is registered, you will receive a password reset link shortly."
+            message=(
+                "If that email is registered, you will receive a"
+                " password reset link shortly."
+            )
         )
 
     async def resetPassword(self, body: ResetPasswordRequest) -> ResetPasswordResponse:
@@ -347,26 +370,14 @@ class AuthService:
         if not pr_record:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": {
-                        "code": "INVALID_OR_EXPIRED_TOKEN",
-                        "message": "This reset link is invalid or has expired.",
-                        "details": [],
-                    }
-                },
+                detail=_INVALID_OR_EXPIRED_TOKEN_DETAIL,
             )
 
         user = _find_user_by_id(pr_record["user_id"])
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "error": {
-                        "code": "INVALID_OR_EXPIRED_TOKEN",
-                        "message": "This reset link is invalid or has expired.",
-                        "details": [],
-                    }
-                },
+                detail=_INVALID_OR_EXPIRED_TOKEN_DETAIL,
             )
 
         user["password_hash"] = _hash_password(body.password)
@@ -378,7 +389,9 @@ class AuthService:
             if rt["user_id"] == user["id"] and rt["revoked_at"] is None:
                 rt["revoked_at"] = now
 
-        return ResetPasswordResponse(message="Your password has been reset successfully.")
+        return ResetPasswordResponse(
+            message="Your password has been reset successfully."
+        )
 
     async def me(self, request: Request) -> MeResponse:
         token = _extract_bearer_token(request)
@@ -439,7 +452,7 @@ class AuthService:
         self,
         request: Request,
         response: Response,
-        refresh_token: Optional[str],
+        refresh_token: str | None,
     ) -> RefreshResponse:
         if not refresh_token:
             raise HTTPException(
@@ -523,7 +536,9 @@ class AuthService:
         # Issue new refresh token
         new_refresh_token_value = _create_refresh_token_value()
         remember_me: bool = rt_record["remember_me"]
-        expire_days = REFRESH_TOKEN_REMEMBER_DAYS if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
+        expire_days = (
+            REFRESH_TOKEN_REMEMBER_DAYS if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
+        )
         new_expires_at = now + timedelta(days=expire_days)
 
         new_rt_id = _next_rt_id()

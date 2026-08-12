@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -14,31 +12,37 @@ class RegisterRequest(BaseModel):
 
 class RegisterResponse(BaseModel):
     id: int
-    fullName: str
+    full_name: str = Field(..., alias="fullName")
     email: str
-    createdAt: str
+    created_at: str = Field(..., alias="createdAt")
+
+    model_config = {"populate_by_name": True}
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    remember_me: Optional[bool] = Field(default=None, alias="rememberMe")
+    remember_me: bool | None = Field(default=None, alias="rememberMe")
 
     model_config = {"populate_by_name": True}
 
 
 class MeResponse(BaseModel):
     id: int
-    fullName: str
+    full_name: str = Field(..., alias="fullName")
     email: str
-    isActive: bool
-    createdAt: str
+    is_active: bool = Field(..., alias="isActive")
+    created_at: str = Field(..., alias="createdAt")
+
+    model_config = {"populate_by_name": True}
 
 
 class LoginResponse(BaseModel):
-    accessToken: str
-    tokenType: str
+    access_token: str = Field(..., alias="accessToken")
+    token_type: str = Field(..., alias="tokenType")
     user: MeResponse
+
+    model_config = {"populate_by_name": True}
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -66,14 +70,16 @@ class LogoutResponse(BaseModel):
 
 
 class RefreshResponse(BaseModel):
-    accessToken: str
-    tokenType: str
+    access_token: str = Field(..., alias="accessToken")
+    token_type: str = Field(..., alias="tokenType")
+
+    model_config = {"populate_by_name": True}
 
 
 class ErrorDetail(BaseModel):
     code: str
     message: str
-    details: List[str] = Field(default_factory=list)
+    details: list[str] = Field(default_factory=list)
 
 
 class ErrorResponse(BaseModel):

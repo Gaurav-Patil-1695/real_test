@@ -39,7 +39,8 @@ def _build_html_body(reset_link: str) -> str:
         "text-decoration:none;border-radius:6px;\""
         ">Reset Password</a></p>"
         f"<p>This link will expire in {expire_minutes} minutes.</p>"
-        "<p>If you did not request a password reset, you can safely ignore this email.</p>"
+        "<p>If you did not request a password reset, you can safely"
+        " ignore this email.</p>"
         "</body></html>"
     )
 

@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
-from typing import Optional
+from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 
 from app.auth.schemas import (
     LoginRequest,
@@ -23,7 +22,11 @@ def get_auth_service() -> AuthService:
     return AuthService()
 
 
-@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def register(
     body: RegisterRequest,
     service: AuthService = Depends(get_auth_service),
@@ -40,16 +43,24 @@ async def login(
     return await service.login(body, response)
 
 
-@router.post("/forgot-password", response_model=ForgotPasswordResponse, status_code=status.HTTP_202_ACCEPTED)
-async def forgotPassword(
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def forgot_password(
     body: ForgotPasswordRequest,
     service: AuthService = Depends(get_auth_service),
 ) -> ForgotPasswordResponse:
     return await service.forgotPassword(body)
 
 
-@router.post("/reset-password", response_model=ResetPasswordResponse, status_code=status.HTTP_200_OK)
-async def resetPassword(
+@router.post(
+    "/reset-password",
+    response_model=ResetPasswordResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def reset_password(
     body: ResetPasswordRequest,
     service: AuthService = Depends(get_auth_service),
 ) -> ResetPasswordResponse:
@@ -73,11 +84,15 @@ async def logout(
     return await service.logout(request, response)
 
 
-@router.post("/refresh", response_model=RefreshResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/refresh",
+    response_model=RefreshResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def refresh(
     request: Request,
     response: Response,
-    refresh_token: Optional[str] = Cookie(default=None, alias="refresh_token"),
+    refresh_token: str | None = Cookie(default=None, alias="refresh_token"),
     service: AuthService = Depends(get_auth_service),
 ) -> RefreshResponse:
     return await service.refresh(request, response, refresh_token)

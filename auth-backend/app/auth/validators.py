@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -17,6 +16,8 @@ PASSWORD_REQUIRE_SPECIAL: bool = False  # require_special_character = false
 _UPPERCASE_RE = re.compile(r"[A-Z]")
 _LOWERCASE_RE = re.compile(r"[a-z]")
 _NUMBER_RE = re.compile(r"[0-9]")
+
+_PASSWORD_REQUIRED_MSG = "Password is required."
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +77,7 @@ def validate_email_field(value: str) -> str:
 def validate_password_field(value: str) -> str:
     """Enforce the full password policy; raises ValueError on first batch of errors."""
     if not value:
-        raise ValueError("Password is required.")
+        raise ValueError(_PASSWORD_REQUIRED_MSG)
     errors = check_password_policy(value)
     if errors:
         # Raise with the first message; Pydantic surfaces each separately when
@@ -115,7 +116,8 @@ class ValidationError(Exception):
 
 
 def collect_password_policy_errors(password: str) -> list[str]:
-    """Return ALL policy violation messages for *password* (used for rich UI feedback)."""
+    """Return ALL policy violation messages for *password* (used for rich UI
+    feedback)."""
     return check_password_policy(password)
 
 
@@ -145,7 +147,9 @@ def validate_registration_fields(
         errors["email"] = [str(exc)]
 
     # password — collect ALL policy messages
-    password_errors = collect_password_policy_errors(password) if password else ["Password is required."]
+    password_errors = (
+        collect_password_policy_errors(password) if password else [_PASSWORD_REQUIRED_MSG]
+    )
     if password_errors:
         errors["password"] = password_errors
 
@@ -167,7 +171,9 @@ def validate_reset_password_fields(
     """Validate password + confirm_password for the reset-password flow."""
     errors: dict[str, list[str]] = {}
 
-    password_errors = collect_password_policy_errors(password) if password else ["Password is required."]
+    password_errors = (
+        collect_password_policy_errors(password) if password else [_PASSWORD_REQUIRED_MSG]
+    )
     if password_errors:
         errors["password"] = password_errors
 

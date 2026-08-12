@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from jose import JWTError, jwt
 
@@ -18,8 +16,12 @@ from app.config.settings import settings
 ACCESS_TOKEN_TTL: timedelta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
 # Refresh token TTL varies based on rememberMe flag
-REFRESH_TOKEN_TTL_DEFAULT: timedelta = timedelta(hours=settings.REFRESH_TOKEN_EXPIRE_HOURS)
-REFRESH_TOKEN_TTL_EXTENDED: timedelta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER_ME)
+REFRESH_TOKEN_TTL_DEFAULT: timedelta = timedelta(
+    hours=settings.REFRESH_TOKEN_EXPIRE_HOURS
+)
+REFRESH_TOKEN_TTL_EXTENDED: timedelta = timedelta(
+    days=settings.REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER_ME
+)
 
 # Password reset token TTL
 RESET_TOKEN_TTL: timedelta = timedelta(minutes=settings.RESET_TOKEN_EXPIRE_MINUTES)
@@ -71,7 +73,7 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def decode_access_token(token: str) -> Optional[dict]:
+def decode_access_token(token: str) -> dict | None:
     """Decode and validate a JWT access token.
 
     Returns the payload dict on success, or *None* if the token is invalid
