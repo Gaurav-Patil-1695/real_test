@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = '/api';
 
 export interface LoginRequest {
   email: string;
@@ -17,7 +17,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   confirmPassword: string;
-  acceptedTerms: boolean;
+  acceptTerms: boolean;
 }
 
 export interface RegisterResponse {
@@ -71,39 +71,43 @@ export interface RefreshResponse {
   tokenType: string;
 }
 
-export interface ApiError {
-  error: {
-    code: string;
-    message: string;
-    details?: Record<string, string[]>;
-  };
+class ApiError extends Error {
+  public readonly status: number;
+  public readonly code: string;
+
+  constructor(message: string, status: number, code: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
 }
 
 async function request<T>(path: string, options: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
-  const response = await fetch(url, {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(options.headers || {}),
+      ...(options.headers ?? {}),
     },
   });
 
   if (!response.ok) {
-    let errorBody: ApiError;
+    let message = 'Something went wrong. Please try again.';
+    let code = 'UNKNOWN_ERROR';
     try {
-      errorBody = await response.json();
+      const body = await response.json();
+      if (body?.error?.message) {
+        message = body.error.message;
+      }
+      if (body?.error?.code) {
+        code = body.error.code;
+      }
     } catch {
-      throw new Error(`Request failed with status ${response.status}`);
+      // ignore parse errors
     }
-    const err = new Error(errorBody.error?.message || 'Request failed');
-    (err as Error & { apiError: ApiError }).apiError = errorBody;
-    throw err;
-  }
-
-  if (response.status === 204) {
-    return undefined as unknown as T;
+    throw new ApiError(message, response.status, code);
   }
 
   return response.json() as Promise<T>;
@@ -160,3 +164,5 @@ export async function refresh(): Promise<RefreshResponse> {
     method: 'POST',
   });
 }
+
+export { ApiError };
